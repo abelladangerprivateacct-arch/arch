@@ -103,7 +103,12 @@ def register():
         payload.get("referral_code", "")
     ).strip()
 
-    if not full_name or not email or not phone or not password:
+    if (
+        not full_name
+        or not email
+        or not phone
+        or not password
+    ):
         return jsonify({
             "status": "error",
             "message": (
@@ -132,7 +137,6 @@ def register():
         }), 409
 
     referred_by = None
-    referrer = None
 
     if referral_code:
         referrer = current_app.db[
@@ -150,9 +154,18 @@ def register():
         referred_by = referrer["_id"]
 
     now = datetime.now(timezone.utc)
+
     new_referral_code = (
-    f"CVM-{secrets.token_hex(4).upper()}"
-)
+        f"CVM-{secrets.token_hex(4).upper()}"
+    )
+
+    while current_app.db["users"].find_one({
+        "referral_code": new_referral_code,
+    }):
+        new_referral_code = (
+            f"CVM-{secrets.token_hex(4).upper()}"
+        )
+
     user = {
         "full_name": full_name,
         "email": email,
