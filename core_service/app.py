@@ -46,7 +46,7 @@ def create_app():
             }), 503
         
     app.register_blueprint(
-    auth_api,
+    auth_api,   
     url_prefix="/api/auth",
 )
     return app
@@ -57,7 +57,7 @@ app = create_app()
 
 if __name__ == "__main__":
     app.run(
-        host="127.0.0.1",
+        host="0.0.0.0",
         port=Config.PORT,
         debug=Config.DEBUG,
     )
