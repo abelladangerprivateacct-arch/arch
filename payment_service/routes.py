@@ -1689,3 +1689,103 @@ def verify_withdrawal_voucher():
             "currency": voucher["currency"],
         },
     }), 200
+
+@payment_api.route(
+    "/referrals",
+    methods=["GET"],
+)
+@user_token_required
+def get_referrals():
+
+    user = request.current_user
+
+    referrals = list(
+        current_app.db[
+            "referrals"
+        ].find({
+            "referrer_id": user["_id"],
+        }).sort(
+            "created_at",
+            -1,
+        )
+    )
+
+    total = len(referrals)
+
+    qualified = sum(
+        1
+        for referral in referrals
+        if referral.get("status") == "valid"
+    )
+
+    pending = sum(
+        1
+        for referral in referrals
+        if referral.get("status") == "pending"
+    )
+
+    required = 10
+
+    eligible = qualified >= required
+
+    referral_data = []
+
+    for referral in referrals:
+
+        referred_user = current_app.db[
+            "users"
+        ].find_one({
+            "_id": referral[
+                "referred_user_id"
+            ],
+        })
+
+        if not referred_user:
+            continue
+
+        referral_data.append({
+            "id": str(
+                referral["_id"]
+            ),
+            "name": referred_user.get(
+                "full_name",
+                "",
+            ),
+            "email": referred_user.get(
+                "email",
+                "",
+            ),
+            "status": referral.get(
+                "status",
+                "pending",
+            ),
+            "created_at": (
+                referral["created_at"].isoformat()
+                if referral.get("created_at")
+                else None
+            ),
+            "qualified_at": (
+                referral["qualified_at"].isoformat()
+                if referral.get("qualified_at")
+                else None
+            ),
+        })
+
+    return jsonify({
+        "status": "success",
+        "data": {
+            "referral_code": user.get(
+                "referral_code"
+            ),
+            "total": total,
+            "qualified": qualified,
+            "pending": pending,
+            "required": required,
+            "eligible": eligible,
+            "remaining": max(
+                required - qualified,
+                0,
+            ),
+            "referrals": referral_data,
+        },
+    }), 200

@@ -150,7 +150,9 @@ def register():
         referred_by = referrer["_id"]
 
     now = datetime.now(timezone.utc)
-
+    new_referral_code = (
+    f"CVM-{secrets.token_hex(4).upper()}"
+)
     user = {
         "full_name": full_name,
         "email": email,
@@ -160,7 +162,7 @@ def register():
         ),
         "role": "user",
         "is_active": True,
-        "referral_code": None,
+        "referral_code": new_referral_code,
         "referred_by": referred_by,
         "created_at": now,
         "updated_at": now,
