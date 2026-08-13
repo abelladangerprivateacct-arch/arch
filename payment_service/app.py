@@ -1,3 +1,5 @@
+import os
+
 from flask import Flask, jsonify
 
 from config import Config
@@ -21,16 +23,40 @@ def create_app():
             "JWT_SECRET_KEY is required"
         )
 
+    cors_origins = app.config.get("CORS_ORIGINS")
+
+    if not cors_origins:
+        cors_origins = [
+            "https://wiune.surge.sh",
+        ]
+
+    if isinstance(cors_origins, str):
+        cors_origins = [
+            origin.strip()
+            for origin in cors_origins.split(",")
+            if origin.strip()
+        ]
+
     cors.init_app(
         app,
         resources={
             r"/api/*": {
-                "origins": app.config[
-                    "CORS_ORIGINS"
-                ],
+                "origins": cors_origins,
             }
         },
         supports_credentials=True,
+        allow_headers=[
+            "Content-Type",
+            "Authorization",
+        ],
+        methods=[
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE",
+            "OPTIONS",
+        ],
     )
 
     limiter.init_app(app)
@@ -74,7 +100,12 @@ app = create_app()
 
 if __name__ == "__main__":
     app.run(
-        host="127.0.0.1",
-        port=Config.PORT,
+        host="0.0.0.0",
+        port=int(
+            os.environ.get(
+                "PORT",
+                Config.PORT,
+            )
+        ),
         debug=Config.DEBUG,
     )
