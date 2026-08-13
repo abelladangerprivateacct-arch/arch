@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from functools import wraps
-
+import secrets
 from flask import Blueprint, current_app, jsonify, request
 
 from auth.service import (
@@ -74,8 +74,6 @@ def token_required(function):
         return function(*args, **kwargs)
 
     return decorated
-
-
 @auth_api.route(
     "/register",
     methods=["POST"],
@@ -100,6 +98,10 @@ def register():
     password = str(
         payload.get("password", "")
     )
+
+    referral_code = str(
+        payload.get("referral_code", "")
+    ).strip()
 
     if not full_name or not email or not phone or not password:
         return jsonify({
@@ -129,6 +131,24 @@ def register():
             ),
         }), 409
 
+    referred_by = None
+    referrer = None
+
+    if referral_code:
+        referrer = current_app.db[
+            "users"
+        ].find_one({
+            "referral_code": referral_code,
+        })
+
+        if not referrer:
+            return jsonify({
+                "status": "error",
+                "message": "Invalid referral code.",
+            }), 400
+
+        referred_by = referrer["_id"]
+
     now = datetime.now(timezone.utc)
 
     user = {
@@ -140,15 +160,29 @@ def register():
         ),
         "role": "user",
         "is_active": True,
+        "referral_code": None,
+        "referred_by": referred_by,
         "created_at": now,
         "updated_at": now,
     }
 
-    result = current_app.db["users"].insert_one(
-        user
-    )
+    result = current_app.db[
+        "users"
+    ].insert_one(user)
 
     user["_id"] = result.inserted_id
+
+    if referred_by:
+        current_app.db[
+            "referrals"
+        ].insert_one({
+            "referrer_id": referred_by,
+            "referred_user_id": user["_id"],
+            "status": "pending",
+            "created_at": now,
+            "qualified_at": None,
+            "updated_at": now,
+        })
 
     token = create_access_token(user)
 
@@ -160,7 +194,6 @@ def register():
             "access_token": token,
         },
     }), 201
-
 @auth_api.route(
     "/login",
     methods=["POST"],

@@ -589,7 +589,6 @@ def get_payment_verifications():
         ],
     }), 200
 
-
 @payment_api.route(
     "/payment-verifications/<payment_id>/approve",
     methods=["POST"],
@@ -598,16 +597,13 @@ def get_payment_verifications():
 def approve_payment_verification(payment_id):
     try:
         object_id = ObjectId(payment_id)
-
     except Exception:
         return jsonify({
             "status": "error",
             "message": "Invalid payment verification ID.",
         }), 400
 
-
     now = datetime.now(timezone.utc)
-
 
     result = current_app.db[
         "payment_verifications"
@@ -626,15 +622,12 @@ def approve_payment_verification(payment_id):
         },
     )
 
-
     if result.matched_count == 0:
-
         existing = current_app.db[
             "payment_verifications"
         ].find_one({
             "_id": object_id,
         })
-
 
         if not existing:
             return jsonify({
@@ -642,13 +635,10 @@ def approve_payment_verification(payment_id):
                 "message": "Payment verification not found.",
             }), 404
 
-
         return jsonify({
             "status": "error",
             "message": "Payment verification is no longer pending.",
         }), 409
-
-
 
     payment = current_app.db[
         "payment_verifications"
@@ -656,14 +646,11 @@ def approve_payment_verification(payment_id):
         "_id": object_id,
     })
 
-
     if not payment:
         return jsonify({
             "status": "error",
             "message": "Payment verification not found after approval.",
         }), 404
-
-
 
     existing_voucher = current_app.db[
         "vouchers"
@@ -671,13 +658,10 @@ def approve_payment_verification(payment_id):
         "payment_verification_id": object_id,
     })
 
-
     if not existing_voucher:
-
         voucher_code = (
             f"cashml-{secrets.randbelow(100000000):08d}"
         )
-
 
         voucher = {
             "user_id": payment["user_id"],
@@ -692,18 +676,37 @@ def approve_payment_verification(payment_id):
             "used_for_withdrawal_id": None,
         }
 
-
         current_app.db[
             "vouchers"
         ].insert_one(voucher)
 
+    user = current_app.db[
+        "users"
+    ].find_one({
+        "_id": payment["user_id"],
+    })
 
-
+    if user and user.get("referred_by"):
+        current_app.db[
+        "referrals"
+    ].update_one(
+        {
+            "referrer_id": user["referred_by"],
+            "referred_user_id": user["_id"],
+            "status": "pending",
+        },
+        {
+            "$set": {
+                "status": "qualified",
+                "qualified_at": now,
+                "updated_at": now,
+            },
+        },
+    )
     notify_payment_status_change(
         payment,
         "approved",
     )
-
 
     return jsonify({
         "status": "success",
@@ -712,6 +715,7 @@ def approve_payment_verification(payment_id):
             payment
         ),
     }), 200
+
 @payment_api.route(
     "/payment-verifications/<payment_id>/reject",
     methods=["POST"],
@@ -1584,7 +1588,7 @@ def withdrawal_pin_status():
             )
         }
     }),200
-@payment_api.route(
+payment_api.route(
     "/withdrawal-eligibility",
     methods=["GET"],
 )
@@ -1594,23 +1598,94 @@ def withdrawal_eligibility():
     user = request.current_user
 
     referral_count = current_app.db[
-        "users"
+        "referrals"
     ].count_documents({
-        "referred_by": user["_id"]
+        "referrer_id": user["_id"],
+        "status": "qualified",
     })
-
 
     required_referrals = 10
 
-
     eligible = referral_count >= required_referrals
-
 
     return jsonify({
         "status": "success",
         "data": {
             "eligible": eligible,
             "referrals": referral_count,
-            "required": required_referrals
-        }
+            "required": required_referrals,
+            "remaining": max(
+                required_referrals - referral_count,
+                0,
+            ),
+        },
+    }), 200
+
+
+@payment_api.route(
+    "/verify-withdrawal-voucher",
+    methods=["POST"],
+)
+@user_token_required
+def verify_withdrawal_voucher():
+
+    payload = request.get_json(
+        silent=True
+    ) or {}
+
+    code = str(
+        payload.get("code", "")
+    ).strip()
+
+    if not code:
+        return jsonify({
+            "status": "error",
+            "message": "Voucher code is required.",
+        }), 400
+
+    voucher = current_app.db[
+        "vouchers"
+    ].find_one({
+        "code": code,
+        "user_id": request.current_user["_id"],
+        "status": "unused",
+    })
+
+    if not voucher:
+        return jsonify({
+            "status": "error",
+            "message": "Invalid or already used voucher.",
+        }), 400
+
+    now = datetime.now(timezone.utc)
+
+    result = current_app.db[
+        "vouchers"
+    ].update_one(
+        {
+            "_id": voucher["_id"],
+            "status": "unused",
+        },
+        {
+            "$set": {
+                "status": "verified",
+                "verified_at": now,
+                "updated_at": now,
+            },
+        },
+    )
+
+    if result.modified_count != 1:
+        return jsonify({
+            "status": "error",
+            "message": "Voucher could not be verified.",
+        }), 409
+
+    return jsonify({
+        "status": "success",
+        "message": "Voucher verified successfully.",
+        "data": {
+            "eligible_amount": voucher["eligible_amount"],
+            "currency": voucher["currency"],
+        },
     }), 200
