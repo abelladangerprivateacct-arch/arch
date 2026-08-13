@@ -11,7 +11,7 @@ class Config:
     PORT = int(
         os.getenv(
             "MESSAGING_SERVICE_PORT",
-            5006,
+            5004    ,
         )
     )
 
