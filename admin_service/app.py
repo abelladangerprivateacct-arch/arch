@@ -22,12 +22,27 @@ def create_app():
         app,
         resources={
             r"/api/*": {
-                "origins": app.config[
-                    "CORS_ORIGINS"
-                ],
+                "origins": [
+                    "http://127.0.0.1:5500",
+                    "http://localhost:5500",
+                    "http://127.0.0.1:5000",
+                    "http://localhost:5000",
+                }
             }
         },
         supports_credentials=True,
+        allow_headers=[
+            "Content-Type",
+            "Authorization",
+        ],
+        methods=[
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE",
+            "OPTIONS",
+        ],
     )
 
     limiter.init_app(app)
@@ -72,9 +87,10 @@ def create_app():
 app = create_app()
 
 
+
 if __name__ == "__main__":
     app.run(
-        host="127.0.0.1",
+        host="0.0.0.0",
         port=Config.PORT,
         debug=Config.DEBUG,
     )
