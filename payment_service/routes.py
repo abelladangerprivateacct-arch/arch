@@ -1588,7 +1588,7 @@ def withdrawal_pin_status():
             )
         }
     }),200
-payment_api.route(
+@payment_api.route(
     "/withdrawal-eligibility",
     methods=["GET"],
 )
