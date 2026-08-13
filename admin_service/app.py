@@ -1,3 +1,5 @@
+import os
+
 from flask import Flask, jsonify
 
 from config import Config
@@ -18,16 +20,25 @@ def create_app():
 
     bcrypt.init_app(app)
 
+    cors_origins = app.config.get("CORS_ORIGINS")
+
+    if not cors_origins:
+        cors_origins = [
+            "https://wiune.surge.sh",
+        ]
+
+    if isinstance(cors_origins, str):
+        cors_origins = [
+            origin.strip()
+            for origin in cors_origins.split(",")
+            if origin.strip()
+        ]
+
     cors.init_app(
         app,
         resources={
             r"/api/*": {
-                "origins": [
-                    "http://127.0.0.1:5500",
-                    "http://localhost:5500",
-                    "http://127.0.0.1:5000",
-                    "http://localhost:5000",
-                }
+                "origins": cors_origins,
             }
         },
         supports_credentials=True,
@@ -87,10 +98,14 @@ def create_app():
 app = create_app()
 
 
-
 if __name__ == "__main__":
     app.run(
         host="0.0.0.0",
-        port=Config.PORT,
+        port=int(
+            os.environ.get(
+                "PORT",
+                Config.PORT,
+            )
+        ),
         debug=Config.DEBUG,
     )
