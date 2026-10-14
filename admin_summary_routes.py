@@ -19,7 +19,7 @@ users = db.users
 
 # --- Blueprint for Admin Summaries ---
 admin_summary_bp = Blueprint("admin_summary", __name__, url_prefix="/api/admin/summary")
-CORS(admin_summary_bp, resources={r"/*": {"origins": "http://localhost:8000/capitello/"}}, supports_credentials=True)
+CORS(admin_summary_bp, resources={r"/*": {"origins": "https://capi.surge.sh/capitello/"}}, supports_credentials=True)
 
 # --- 1️⃣ Admin Dashboard Summary ---
 @admin_summary_bp.route("/", methods=["GET"])
