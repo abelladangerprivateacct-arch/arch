@@ -1,0 +1,41 @@
+# --- Core Flask Framework ---
+Flask==2.3.3
+Flask-Cors==4.0.0
+Werkzeug==2.3.7
+
+# --- Database & ORM ---
+pymongo==4.5.0
+dnspython==2.3.0
+
+# --- Authentication & Security ---
+bcrypt==4.0.1
+PyJWT==2.8.0
+itsdangerous==2.1.2
+
+# --- Environment Variables ---
+python-dotenv==1.0.0
+
+# --- Email / Notification ---
+resend==0.8.0
+requests==2.31.0
+
+# --- Date & Time ---
+pytz==2023.3
+python-dateutil==2.8.2
+
+# --- Production Servers ---
+gunicorn==21.2.0
+waitress==2.1.2
+
+# --- Utility / JSON Handling ---
+simplejson==3.19.2
+
+# --- Optional Extras ---
+cryptography==41.0.7
+idna==3.6
+certifi==2023.7.22
+charset-normalizer==3.2.0
+
+# --- Testing & Debug Tools (optional) ---
+pytest==7.4.2
+requests-mock==1.11.0
