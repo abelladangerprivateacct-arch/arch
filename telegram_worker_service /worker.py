@@ -3,7 +3,9 @@
 import logging
 import os
 import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from threading import Thread
 
 from dotenv import load_dotenv
 
@@ -19,6 +21,20 @@ logging.basicConfig(
 logger = logging.getLogger("telegram_worker_service")
 
 
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path != "/health":
+            self.send_error(404)
+            return
+
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"OK")
+
+    def log_message(self, format, *args):
+        pass
+
+
 def main():
     required = ("TELEGRAM_BOT_TOKEN", "MONGO_URI", "DB_NAME")
     missing = [name for name in required if not os.getenv(name, "").strip()]
@@ -29,6 +45,11 @@ def main():
         poll_seconds = max(0.1, float(os.getenv("TELEGRAM_WORKER_POLL_SECONDS", "1")))
     except ValueError as error:
         raise SystemExit("TELEGRAM_WORKER_POLL_SECONDS must be a number") from error
+
+    port = int(os.getenv("PORT", "10000"))
+    server = ThreadingHTTPServer(("0.0.0.0", port), HealthHandler)
+    Thread(target=server.serve_forever, daemon=True).start()
+    logger.info("Health endpoint listening on port %s", port)
 
     logger.info("Standalone Telegram worker started; poll interval=%s seconds", poll_seconds)
     while True:
