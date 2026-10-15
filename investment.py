@@ -386,7 +386,7 @@ def confirm_investment():
                         f"referral-reward:{user_id}:{investment_id}",
                         "referral_reward",
                         "Referral reward added",
-                        f"A ${reward:.2f} referral reward was added to your account.",
+                         f"A {reward:.2f} USDT referral reward was added to your account.",
                         related_id=investment_id,
                         amount=reward,
                     )
