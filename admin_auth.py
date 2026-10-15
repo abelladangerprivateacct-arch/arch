@@ -15,7 +15,7 @@ from urllib.parse import quote
 from bson import ObjectId
 from dotenv import load_dotenv
 from admin_roles import ROLE_DESCRIPTIONS, ROLE_PERMISSIONS, role_for_admin
-from auth_helpers import authenticate_admin, require_admin_permission
+from auth_helpers import authenticate_admin, require_admin_permission, admin_mfa_required
 from notifications import record_admin_action
 
 # --- Load environment variables ---
@@ -428,14 +428,15 @@ def admin_login():
         if not check_password_hash(admin["password"], password):
             return jsonify({"success": False, "error": "Invalid credentials"}), 401
 
-        # Require a TOTP authenticator code after the initial enrollment.
+        # MFA is optional unless explicitly required by configuration.
         if not admin.get("mfaEnabled"):
-            return jsonify({
-                "success": True,
-                "mfaSetupRequired": True,
-                "setupToken": generate_setup_token(admin["_id"]),
-            }), 200
-        if not verify_totp(admin.get("mfaSecret", ""), otp_code):
+            if admin_mfa_required():
+                return jsonify({
+                    "success": True,
+                    "mfaSetupRequired": True,
+                    "setupToken": generate_setup_token(admin["_id"]),
+                }), 200
+        elif admin_mfa_required() and not verify_totp(admin.get("mfaSecret", ""), otp_code):
             return jsonify({"success": False, "error": "A valid authenticator code is required"}), 401
 
         # --- Generate token ---

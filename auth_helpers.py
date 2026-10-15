@@ -17,6 +17,11 @@ JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 admin_client = MongoClient(os.getenv("MONGO_URI"))
 admins = admin_client[os.getenv("DB_NAME")].admins
 
+
+def admin_mfa_required():
+    value = os.getenv("REQUIRE_ADMIN_MFA", "false").strip().lower()
+    return value in {"1", "true", "yes", "on"}
+
 # --------------------------
 # Token creation
 # --------------------------
@@ -84,7 +89,9 @@ def authenticate_admin(f):
         except PyMongoError:
             return jsonify({"error": "Admin authorization is temporarily unavailable"}), 503
 
-        if not admin or admin.get("isActive") is False or not admin.get("mfaEnabled"):
+        if not admin or admin.get("isActive") is False:
+            return jsonify({"error": "Active admin session required"}), 401
+        if admin_mfa_required() and not admin.get("mfaEnabled"):
             return jsonify({"error": "Active admin session required"}), 401
 
         role = role_for_admin(admin)
