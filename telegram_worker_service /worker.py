@@ -1,11 +1,14 @@
 """Run the Telegram outbox worker as a standalone deployable service."""
 
+import hmac
+import json
 import logging
 import os
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
+from urllib.request import Request, urlopen
 
 from dotenv import load_dotenv
 
@@ -31,6 +34,59 @@ class HealthHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b"OK")
 
+    def do_POST(self):
+        if self.path != "/api/telegram/webhook":
+            self.send_error(404)
+            return
+
+        secret = os.getenv("TELEGRAM_WEBHOOK_SECRET_TOKEN", "")
+        if secret and not hmac.compare_digest(
+            self.headers.get("X-Telegram-Bot-Api-Secret-Token", ""),
+            secret,
+        ):
+            self.send_error(403)
+            return
+
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            if length <= 0 or length > 1_000_000:
+                self.send_error(400)
+                return
+            update = json.loads(self.rfile.read(length))
+        except (ValueError, json.JSONDecodeError):
+            self.send_error(400)
+            return
+
+        message = update.get("message", {})
+        text = message.get("text", "")
+        chat_id = message.get("chat", {}).get("id")
+        command = text.split(maxsplit=1)[0].split("@", 1)[0] if text else ""
+
+        if chat_id is not None and command == "/start":
+            token = os.environ["TELEGRAM_BOT_TOKEN"]
+            payload = json.dumps({
+                "chat_id": chat_id,
+                "text": "Hello! The bot is running.",
+            }).encode()
+            request = Request(
+                f"https://api.telegram.org/bot{token}/sendMessage",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+            )
+            try:
+                with urlopen(request, timeout=10) as response:
+                    result = json.load(response)
+                if not result.get("ok"):
+                    raise RuntimeError("Telegram sendMessage returned an error")
+            except Exception:
+                logger.exception("Failed to reply to Telegram /start")
+                self.send_error(500)
+                return
+
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"OK")
+
     def log_message(self, format, *args):
         pass
 
@@ -49,7 +105,7 @@ def main():
     port = int(os.getenv("PORT", "10000"))
     server = ThreadingHTTPServer(("0.0.0.0", port), HealthHandler)
     Thread(target=server.serve_forever, daemon=True).start()
-    logger.info("Health endpoint listening on port %s", port)
+    logger.info("HTTP server listening on port %s", port)
 
     logger.info("Standalone Telegram worker started; poll interval=%s seconds", poll_seconds)
     while True:
