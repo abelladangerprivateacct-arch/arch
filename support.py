@@ -132,6 +132,11 @@ def list_support_tickets():
     if status not in allowed:
         return jsonify({"success": False, "error": "Invalid ticket status"}), 400
     query = {} if status == "all" else {"status": status}
+    ticket_id = str(request.args.get("ticket_id") or "").strip()
+    if ticket_id:
+        if not ObjectId.is_valid(ticket_id):
+            return jsonify({"success": False, "error": "Invalid support request"}), 400
+        query["_id"] = ObjectId(ticket_id)
     try:
         page = max(request.args.get("page", 1, type=int), 1)
         per_page = min(max(request.args.get("per_page", 20, type=int), 1), 50)
