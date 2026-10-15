@@ -332,7 +332,7 @@ def confirm_investment():
                     if total_active_investment >= 100:
                         reward = 10.0
                     else:
-                        reward = 1.0  # includes $0 and <$100 cases
+                        reward = 2.0  # includes $0 and <$100 cases
 
                     # Update the referral row created during signup instead of
                     # appending another row for the same referred user.
@@ -386,7 +386,7 @@ def confirm_investment():
                         f"referral-reward:{user_id}:{investment_id}",
                         "referral_reward",
                         "Referral reward added",
-                         f"A {reward:.2f} USDT referral reward was added to your account.",
+                        f"A ${reward:.2f} referral reward was added to your account.",
                         related_id=investment_id,
                         amount=reward,
                     )
